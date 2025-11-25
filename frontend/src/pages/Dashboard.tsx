@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Bot, FileText, Database, AlertCircle, TrendingUp, Clock, Ban } from 'lucide-react';
+import { Bot, FileText, Database, AlertCircle, Clock, Ban } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { DashboardStats } from '@/types';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { formatDistanceToNow } from 'date-fns';
 import QueueStatusWidget from '@/components/QueueStatusWidget';
 import BlockedTasksView from '@/components/BlockedTasksView';
+import SuggestionCard from '@/components/SuggestionCard';
 
 const StatCard: React.FC<{
   title: string;
   value: number;
   icon: React.ElementType;
   color: string;
-  trend?: number;
-}> = ({ title, value, icon: Icon, color, trend }) => {
+}> = ({ title, value, icon: Icon, color }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -33,14 +33,6 @@ const StatCard: React.FC<{
           >
             {value}
           </motion.p>
-          {trend !== undefined && (
-            <div className="flex items-center mt-2">
-              <TrendingUp className={`w-4 h-4 ${trend > 0 ? 'text-green-500' : 'text-red-500'}`} />
-              <span className={`text-sm ml-1 ${trend > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {trend > 0 ? '+' : ''}{trend}
-              </span>
-            </div>
-          )}
         </div>
         <div className={`p-3 rounded-full ${color}`}>
           <Icon className="w-6 h-6 text-white" />
@@ -81,6 +73,12 @@ const Dashboard: React.FC = () => {
   const { data: blockedTasks } = useQuery({
     queryKey: ['blocked-tasks'],
     queryFn: apiService.getBlockedTasks,
+    refetchInterval: 5000, // Refresh every 5 seconds
+  });
+
+  const { data: suggestions } = useQuery({
+    queryKey: ['suggestions'],
+    queryFn: apiService.getSuggestions,
     refetchInterval: 5000, // Refresh every 5 seconds
   });
 
@@ -206,6 +204,16 @@ const Dashboard: React.FC = () => {
       {blockedTasks && blockedTasks.length > 0 && (
         <div>
           <BlockedTasksView />
+        </div>
+      )}
+
+      {/* Suggestions */}
+      {suggestions && suggestions.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-gray-800">Improvement Suggestions</h2>
+          {suggestions.map((suggestion) => (
+            <SuggestionCard key={suggestion.id} suggestion={suggestion} />
+          ))}
         </div>
       )}
 

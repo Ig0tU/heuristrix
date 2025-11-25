@@ -147,6 +147,12 @@ class Conductor:
             logger.info(f"Full Response: {gpt5_analysis}")
             logger.info("=" * 60)
 
+            # --- Process Analyst Trigger ---
+            # This is a proof-of-concept for the self-improving mechanism.
+            # We will detect inefficiency patterns and trigger the ProcessAnalyst agent.
+            self._detect_inefficiency_patterns(guardian_summaries)
+            # --- End Process Analyst Trigger ---
+
             # Extract LLM's decisions
             duplicates = gpt5_analysis.get("duplicates", [])
             coherence_score = gpt5_analysis.get("coherence_score", 0.7)
@@ -409,3 +415,39 @@ class Conductor:
         report.append("=" * 60)
 
         return "\n".join(report)
+
+    def _detect_inefficiency_patterns(self, guardian_summaries: List[Dict[str, Any]]):
+        """
+        Detect patterns of inefficiency that may warrant a process analysis.
+
+        This is a proof-of-concept and will be expanded with more sophisticated heuristics.
+        """
+        # Simple heuristic: if a feature has more than two "bug fix" tasks, trigger analysis.
+        # This is a placeholder for a more robust implementation that would analyze task history.
+
+        bug_fix_tasks = [
+            summary for summary in guardian_summaries
+            if "bug fix" in summary.get("trajectory_summary", "").lower()
+        ]
+
+        if len(bug_fix_tasks) > 2:
+            logger.info("Inefficiency pattern detected: Multiple bug-fix tasks for the same feature.")
+            logger.info("Triggering Process Analyst agent.")
+
+            # Get a new ProcessAnalystAgent and call it
+            from src.agents.process_analyst import ProcessAnalystAgent
+            from src.interfaces import get_llm_provider
+
+            llm_provider = get_llm_provider()
+            process_analyst = ProcessAnalystAgent(self.db_manager, llm_provider)
+
+            # We need to get the full task objects, not just the summaries
+            task_ids = [summary["task_id"] for summary in bug_fix_tasks]
+            with self.db_manager.get_session() as db:
+                tasks = db.query(Task).filter(Task.id.in_(task_ids)).all()
+
+            asyncio.create_task(process_analyst.analyze_and_suggest(
+                triggering_event={"type": "recurring_bug_fixes", "count": len(bug_fix_tasks)},
+                tasks=tasks,
+                project_context=self.agent_manager.get_project_context(),
+            ))

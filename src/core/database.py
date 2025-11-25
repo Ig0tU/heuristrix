@@ -791,6 +791,27 @@ class BoardConfig(Base):
     workflow = relationship("Workflow", backref="board_config")
 
 
+class ProcessSuggestion(Base):
+    """Stores suggestions for process improvements from the ProcessAnalyst agent."""
+
+    __tablename__ = "process_suggestions"
+
+    id = Column(String, primary_key=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    phase_id = Column(String, nullable=False)
+    suggestion_text = Column(Text, nullable=False)
+    reasoning = Column(Text, nullable=False)
+    triggering_event = Column(JSON, nullable=False)
+    status = Column(
+        String,
+        CheckConstraint("status IN ('pending', 'approved', 'rejected')"),
+        default="pending",
+        nullable=False,
+    )
+    reviewed_at = Column(DateTime)
+    reviewed_by = Column(String)  # User ID or "system"
+
+
 class DatabaseManager:
     """Manager for database operations."""
 

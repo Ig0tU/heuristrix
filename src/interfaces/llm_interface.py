@@ -165,6 +165,18 @@ class LLMProviderInterface(ABC):
         """
         pass
 
+    @abstractmethod
+    async def generate_suggestion(self, prompt: str) -> Dict[str, Any]:
+        """Generate a process improvement suggestion.
+
+        Args:
+            prompt: The prompt containing the context and trigger for the suggestion.
+
+        Returns:
+            A dictionary containing the suggestion.
+        """
+        pass
+
 
 class OpenAIProvider(LLMProviderInterface):
     """OpenAI GPT implementation."""
@@ -489,6 +501,27 @@ IDs: Agent={task.get('agent_id', 'unknown')} | Task={task.get('id', 'unknown')}"
         """Get model name."""
         return self.model
 
+    async def generate_suggestion(self, prompt: str) -> Dict[str, Any]:
+        """Generate a process improvement suggestion using GPT."""
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a process improvement expert for an AI orchestration system."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=2048,
+            )
+            return json.loads(response.choices[0].message.content)
+        except Exception as e:
+            logger.error(f"Failed to generate suggestion: {e}")
+            return {
+                "phase_id": "unknown",
+                "suggestion_text": "Could not generate a suggestion.",
+                "reasoning": str(e),
+            }
+
 
 class AnthropicProvider(LLMProviderInterface):
     """Anthropic Claude implementation."""
@@ -674,6 +707,15 @@ IDs: Agent={task.get('agent_id', 'unknown')} | Task={task.get('id', 'unknown')}"
     def get_model_name(self) -> str:
         """Get model name."""
         return self.model
+
+    async def generate_suggestion(self, prompt: str) -> Dict[str, Any]:
+        """Generate a process improvement suggestion using Claude."""
+        logger.warning("Suggestion generation not fully implemented for Anthropic provider")
+        return {
+            "phase_id": "unknown",
+            "suggestion_text": "Suggestion generation not implemented for this provider.",
+            "reasoning": "Not implemented.",
+        }
 
 
 # Registry for LLM providers
