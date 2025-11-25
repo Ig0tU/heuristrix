@@ -500,4 +500,20 @@ export const apiService = {
     const { data } = await api.post('/sync-blocking-status');
     return data;
   },
+
+  // Suggestions
+  getSuggestions: async (): Promise<any[]> => {
+    const { data } = await api.get('/suggestions');
+    return data;
+  },
+
+  approveSuggestion: async (suggestionId: string): Promise<any> => {
+    const { data } = await api.post(`/suggestions/${suggestionId}/approve`);
+    return data;
+  },
+
+  rejectSuggestion: async (suggestionId: string): Promise<any> => {
+    const { data } = await api.post(`/suggestions/${suggestionId}/reject`);
+    return data;
+  },
 };

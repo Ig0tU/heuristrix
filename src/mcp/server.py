@@ -3887,6 +3887,79 @@ async def get_queue_status_endpoint():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/suggestions")
+async def get_suggestions():
+    """Get all process improvement suggestions."""
+    try:
+        from src.core.database import ProcessSuggestion
+        with get_db() as db:
+            suggestions = db.query(ProcessSuggestion).all()
+            return [
+                {
+                    "id": s.id,
+                    "created_at": s.created_at.isoformat(),
+                    "phase_id": s.phase_id,
+                    "suggestion_text": s.suggestion_text,
+                    "reasoning": s.reasoning,
+                    "triggering_event": s.triggering_event,
+                    "status": s.status,
+                }
+                for s in suggestions
+            ]
+    except Exception as e:
+        logger.error(f"Failed to get suggestions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/suggestions/{suggestion_id}/approve")
+async def approve_suggestion(suggestion_id: str, user_id: str = Body("system", embed=True)):
+    """Approve a process improvement suggestion."""
+    try:
+        from src.core.database import ProcessSuggestion, Phase
+        with get_db() as db:
+            suggestion = db.query(ProcessSuggestion).filter_by(id=suggestion_id).first()
+            if not suggestion:
+                raise HTTPException(status_code=404, detail="Suggestion not found")
+
+            suggestion.status = "approved"
+            suggestion.reviewed_at = datetime.utcnow()
+            suggestion.reviewed_by = user_id
+
+            # Apply the suggestion to the phase
+            phase = db.query(Phase).filter_by(id=suggestion.phase_id).first()
+            if phase:
+                phase.description += f"\n\n--- Improvement ---\n{suggestion.suggestion_text}"
+
+            db.commit()
+
+            return {"status": "approved"}
+    except Exception as e:
+        logger.error(f"Failed to approve suggestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/suggestions/{suggestion_id}/reject")
+async def reject_suggestion(suggestion_id: str, user_id: str = Body("system", embed=True)):
+    """Reject a process improvement suggestion."""
+    try:
+        from src.core.database import ProcessSuggestion
+        with get_db() as db:
+            suggestion = db.query(ProcessSuggestion).filter_by(id=suggestion_id).first()
+            if not suggestion:
+                raise HTTPException(status_code=404, detail="Suggestion not found")
+
+            suggestion.status = "rejected"
+            suggestion.reviewed_at = datetime.utcnow()
+            suggestion.reviewed_by = user_id
+
+            db.commit()
+
+            return {"status": "rejected"}
+    except Exception as e:
+        logger.error(f"Failed to reject suggestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/agent_status")
 async def get_agent_status(
     agent_id: Optional[str] = None,
